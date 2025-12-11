@@ -7,10 +7,11 @@ from skimage.feature import hog
 from skimage.color import rgb2gray
 
 # all constants I need
-DATA_DIR = "../augmented"
-OUTPUT_FEATURES = "../features_X.npy"
-OUTPUT_LABELS = "../labels_y.npy"
-OUTPUT_SCALER = "../scaler.pkl"
+DATA_DIR = "augmented"
+OUTPUT = "extracted_features"
+OUTPUT_FEATURES = fr"{OUTPUT}/features_X.npy"
+OUTPUT_LABELS = fr"{OUTPUT}/labels_y.npy"
+OUTPUT_SCALER = fr"{OUTPUT}/scaler.pkl"
 HOG_RESIZE_DIMENSIONS = (64, 128)  # standard image size for HOG
 COLOR_HIST_BINS = 32               # standard bins number per channel for Color histograms
 
@@ -21,7 +22,7 @@ def load_image(augmented_dir: str = DATA_DIR):
     labels = [] # list of labels, numpy array represent each label
     class_names = [] # list of class names
 
-    # checking input images directory validity
+    # checking input images directory existence
     if not os.path.exists(augmented_dir):
         print("AUGMENTED DIRECTORY NOT FOUND")
         return
@@ -37,10 +38,10 @@ def load_image(augmented_dir: str = DATA_DIR):
 
         # gets all images in this class
         images_files = [i for i in os.listdir(class_path)
-                        if i.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))]
+                        if i.lower().endswith((".png", ".jpg", ".jpeg"))]
         print(f"class {class_name} with Id = {class_id} loads {len(images_files)} images") 
 
-        # getting the path for every images in all classes we hav
+        # getting the path for every images in all classes we have
         for image_name in images_files:
             image_path = os.path.join(class_path, image_name)
 
@@ -49,7 +50,7 @@ def load_image(augmented_dir: str = DATA_DIR):
                 print("CANNOT LOAD THIS IMAGE: ", image_path)
                 continue
 
-            # convert to RGB (all featuers extractors expect RGB images)
+            # convert to RGB (all features extractors expect RGB images)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             images.append(image) # appending the prepared image to our list with its label
             labels.append(class_id)
@@ -70,7 +71,7 @@ def extract_color_histograms(image, bins: int=32):
         return
 
     # resizing the image to be more smaller to improve the performance
-    # since extracting color features doesnt depend on the image size
+    # since extracting color features doesn't depend on the image size
     resized_image = cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA)
 
     # preparing a list that will contain the color histogram features
@@ -78,13 +79,13 @@ def extract_color_histograms(image, bins: int=32):
     hist_features = []
 
     for channel in range(3):
-        # extracting the color histogram, calchist return 2d array (bins,1)
+        # extracting the color histogram, calcHist return 2d array (bins,1)
         hist = cv2.calcHist(
             [resized_image], # input resized image
-            [channel],  # 0, 1, 3
-            None,  ## no mask
-            [bins], # 32 bins (the default value)
-            [0, 256] # intensity range
+            [channel],       # 0, 1, 3
+            None,            # no mask
+            [bins],          # 32 bins (the default value)
+            [0, 256]         # intensity range
         )
 
         hist = hist.flatten() # making it 1D (32,)
@@ -93,9 +94,10 @@ def extract_color_histograms(image, bins: int=32):
 
     return np.array(hist_features) # return 1
 
-# takes an image as numpy array (RGB), works only on grayscaled images
+# takes an image as numpy array (RGB), works only on grayscale images
 def extract_hog_features(image):
 
+    # checking the validity of the input image
     if image is None or image.size == 0:
         print("extract hog: INPUT IMAGE IS EMPTY")
         return
@@ -136,7 +138,7 @@ def extract_hog_features(image):
 
     return hog_features
 
-# function to combine the two feature extractors, recieves image as numpy array
+# function to combine the two feature extractors, receives image as numpy array
 def extract_features(image):
 
     # checking the validity of the input image
@@ -197,17 +199,26 @@ def build_features_set():
     for class_id, count in zip(unique, counts):
         print(f"Class {class_id} ({class_names[class_id]}): {count} samples")
 
-    print("Normalize feature vector using standardScaller ...")
+    print("Normalize feature vector using standardScaler ...")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     print("Features normalized successfully.")
+
+    # -------------------------------
+    # Ensure OUTPUT directory exists
+    # -------------------------------
+    if not os.path.exists(OUTPUT):
+        os.makedirs(OUTPUT)
+        print(f"Created output folder: {OUTPUT}")
+    else:
+        print(f"Output folder already exists: {OUTPUT}")
 
     print("Saving features to disk...")
     try:
         np.save(OUTPUT_FEATURES, X_scaled)
         np.save(OUTPUT_LABELS, y)
         joblib.dump(scaler, OUTPUT_SCALER)
-        print("Features and labelssaved to disk successfully.")
+        print("Features and labels saved to disk successfully.")
     except Exception as e:
         print(f"ERROR SAVING FEATURES: {e}")
 
