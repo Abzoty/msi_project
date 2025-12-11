@@ -10,19 +10,17 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 
 # Define file paths
-X_Scaled_filepath = "extracted_features/features_X.npy"
-labels_y_filepath = "extracted_features/labels_y.npy"
-scaler_filepath = "extracted_features/scaler.pkl"
+X_Scaled_filepath = "extracted_features/features.npy"
+labels_y_filepath = "extracted_features/labels.npy"
 knn_model_filepath = "knn_model.pkl"
 PREDICTION_OUTPUT_FILE = "prediction_report.txt"
 
 def read_data():
     """Loads scaled features, labels, and the scaler object."""
     try:
-        Scaler = joblib.load(scaler_filepath)
         X = np.load(X_Scaled_filepath)
         y = np.load(labels_y_filepath)
-        return Scaler, X, y
+        return  X, y
     except Exception as e:
         print(f"Error loading data files: {e}. Ensure features_X.npy, labels_y.npy, and scaler.pkl exist.")
         raise 
@@ -209,7 +207,7 @@ class KNNClassifier:
     
 def main():
     
-    Scaler, X, y = read_data()
+    X, y = read_data()
     
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
 
