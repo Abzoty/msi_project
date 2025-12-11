@@ -21,6 +21,8 @@ MSI_PROJECT/
 │   ├── plastic/  
 │   └── trash/    
 │
+├── extracted_features/          # Extracted features (numpy arrays)     
+│
 ├── *.py                        # Python scripts for the project
 │
 └── venv/                       # (Optional) Python virtual environment
