@@ -1,19 +1,18 @@
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 import joblib
 import numpy as np
 import os 
 from sklearn.model_selection import StratifiedShuffleSplit
-
-
-
-
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+import seaborn as sns
 
 # Define file paths
-X_Scaled_filepath = "features_X.npy"
-labels_y_filepath = "labels_y.npy"
-scaler_filepath = "scaler.pkl"
+X_Scaled_filepath = "extracted_features/features_X.npy"
+labels_y_filepath = "extracted_features/labels_y.npy"
+scaler_filepath = "extracted_features/scaler.pkl"
 knn_model_filepath = "knn_model.pkl"
 PREDICTION_OUTPUT_FILE = "prediction_report.txt"
 
@@ -60,12 +59,136 @@ def write_prediction_report(y_test, y_pred):
         print(f"ERROR: Could not write prediction file: {e}")    
 
 
+def plot_data_visualization(X, y, X_train, y_train, X_test, y_test, y_pred):
+    """
+    Creates comprehensive visualizations of the data and model performance.
+    """
+    # Get unique classes and assign distinct colors
+    unique_classes = np.unique(y)
+    n_classes = len(unique_classes)
+    colors = plt.cm.tab10(np.linspace(0, 1, n_classes))
+    color_map = {cls: colors[i] for i, cls in enumerate(unique_classes)}
+    
+    # Create figure with multiple subplots
+    fig = plt.figure(figsize=(18, 12))
+    
+    # 1. Class Distribution (Top Left)
+    ax1 = plt.subplot(2, 3, 1)
+    unique, counts = np.unique(y, return_counts=True)
+    bars = ax1.bar(range(len(unique)), counts, color=[color_map[cls] for cls in unique])
+    ax1.set_xlabel('Class Label', fontsize=11)
+    ax1.set_ylabel('Number of Samples', fontsize=11)
+    ax1.set_title('Class Distribution in Dataset', fontsize=12, fontweight='bold')
+    ax1.set_xticks(range(len(unique)))
+    ax1.set_xticklabels(unique, rotation=45, ha='right')
+    ax1.grid(axis='y', alpha=0.3)
+    
+    # 2. PCA 2D Visualization - Full Dataset (Top Center)
+    ax2 = plt.subplot(2, 3, 2)
+    pca_2d = PCA(n_components=2)
+    X_pca_2d = pca_2d.fit_transform(X)
+    
+    for cls in unique_classes:
+        mask = y == cls
+        ax2.scatter(X_pca_2d[mask, 0], X_pca_2d[mask, 1], 
+                   c=[color_map[cls]], label=cls, alpha=0.6, s=30, edgecolors='k', linewidth=0.5)
+    
+    ax2.set_xlabel(f'PC1 ({pca_2d.explained_variance_ratio_[0]:.2%} var)', fontsize=11)
+    ax2.set_ylabel(f'PC2 ({pca_2d.explained_variance_ratio_[1]:.2%} var)', fontsize=11)
+    ax2.set_title('PCA 2D Visualization - All Data', fontsize=12, fontweight='bold')
+    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    ax2.grid(alpha=0.3)
+    
+    # 3. PCA 3D Visualization (Top Right)
+    ax3 = plt.subplot(2, 3, 3, projection='3d')
+    pca_3d = PCA(n_components=3)
+    X_pca_3d = pca_3d.fit_transform(X)
+    
+    for cls in unique_classes:
+        mask = y == cls
+        ax3.scatter(X_pca_3d[mask, 0], X_pca_3d[mask, 1], X_pca_3d[mask, 2],
+                   c=[color_map[cls]], label=cls, alpha=0.6, s=20, edgecolors='k', linewidth=0.5)
+    
+    ax3.set_xlabel(f'PC1 ({pca_3d.explained_variance_ratio_[0]:.2%})', fontsize=9)
+    ax3.set_ylabel(f'PC2 ({pca_3d.explained_variance_ratio_[1]:.2%})', fontsize=9)
+    ax3.set_zlabel(f'PC3 ({pca_3d.explained_variance_ratio_[2]:.2%})', fontsize=9)
+    ax3.set_title('PCA 3D Visualization', fontsize=12, fontweight='bold')
+    ax3.legend(fontsize=7)
+    
+    # 4. Train vs Test Split Visualization (Bottom Left)
+    ax4 = plt.subplot(2, 3, 4)
+    X_train_pca = pca_2d.transform(X_train)
+    X_test_pca = pca_2d.transform(X_test)
+    
+    for cls in unique_classes:
+        train_mask = y_train == cls
+        test_mask = y_test == cls
+        
+        if np.any(train_mask):
+            ax4.scatter(X_train_pca[train_mask, 0], X_train_pca[train_mask, 1],
+                       c=[color_map[cls]], marker='o', alpha=0.6, s=40, 
+                       edgecolors='k', linewidth=0.5, label=f'{cls} (train)')
+        
+        if np.any(test_mask):
+            ax4.scatter(X_test_pca[test_mask, 0], X_test_pca[test_mask, 1],
+                       c=[color_map[cls]], marker='s', alpha=0.8, s=60,
+                       edgecolors='red', linewidth=1.5, label=f'{cls} (test)')
+    
+    ax4.set_xlabel('PC1', fontsize=11)
+    ax4.set_ylabel('PC2', fontsize=11)
+    ax4.set_title('Train/Test Split (circles=train, squares=test)', fontsize=12, fontweight='bold')
+    ax4.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=7)
+    ax4.grid(alpha=0.3)
+    
+    # 5. Confusion Matrix (Bottom Center)
+    ax5 = plt.subplot(2, 3, 5)
+    cm = confusion_matrix(y_test, y_pred, labels=unique_classes)
+    
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=unique_classes, yticklabels=unique_classes,
+                cbar_kws={'label': 'Count'}, ax=ax5)
+    
+    ax5.set_xlabel('Predicted Label', fontsize=11)
+    ax5.set_ylabel('True Label', fontsize=11)
+    ax5.set_title('Confusion Matrix', fontsize=12, fontweight='bold')
+    
+    # 6. Prediction Results Visualization (Bottom Right)
+    ax6 = plt.subplot(2, 3, 6)
+    X_test_pca = pca_2d.transform(X_test)
+    
+    # Plot correct predictions
+    correct_mask = y_test == y_pred
+    incorrect_mask = ~correct_mask
+    
+    for cls in unique_classes:
+        cls_correct = correct_mask & (y_test == cls)
+        if np.any(cls_correct):
+            ax6.scatter(X_test_pca[cls_correct, 0], X_test_pca[cls_correct, 1],
+                       c=[color_map[cls]], marker='o', alpha=0.7, s=60,
+                       edgecolors='green', linewidth=2, label=f'{cls} ✓')
+    
+    # Plot incorrect predictions with X markers
+    if np.any(incorrect_mask):
+        ax6.scatter(X_test_pca[incorrect_mask, 0], X_test_pca[incorrect_mask, 1],
+                   c='red', marker='x', s=200, linewidth=3, label='Misclassified', zorder=5)
+    
+    ax6.set_xlabel('PC1', fontsize=11)
+    ax6.set_ylabel('PC2', fontsize=11)
+    ax6.set_title('Prediction Results (X = misclassified)', fontsize=12, fontweight='bold')
+    ax6.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+    ax6.grid(alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig('knn_data_visualization.png', dpi=300, bbox_inches='tight')
+
+
+
 class KNNClassifier:
     """Wrapper class for Scikit-learn's KNeighborsClassifier."""
     def __init__(self, n_neighbors=5):
         self.n_neighbors = n_neighbors
         # Initialize with the base Scikit-learn classifier
-        self.classifier = KNeighborsClassifier(n_neighbors=n_neighbors)
+        self.classifier = KNeighborsClassifier(n_neighbors=n_neighbors, weights='distance', n_jobs=-1)
 
     def fit(self, X, y):
         self.classifier.fit(X, y)
@@ -86,9 +209,7 @@ class KNNClassifier:
     
 def main():
     
-    Scaler , X , y = read_data()
-    
-    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    Scaler, X, y = read_data()
     
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
 
@@ -102,7 +223,7 @@ def main():
     print("Test size:", len(X_test))
     
 
-    knn = KNNClassifier()
+    knn = KNNClassifier(3)
     model_was_loaded = False
     
     if os.path.isfile(knn_model_filepath):
@@ -121,12 +242,12 @@ def main():
         knn.save(knn_model_filepath)
 
     
-# --- ACCURACY REPORT ---
+    # --- ACCURACY REPORT ---
     y_predict = knn.predict(X_test)
     write_prediction_report(y_test, y_predict)
     
     
-    accuracy = accuracy_score(y_predict,y_test)
+    accuracy = accuracy_score(y_predict, y_test)
     
     print("\n" + "="*30)
     print(f"       ACCURACY REPORT      ")
@@ -139,6 +260,11 @@ def main():
     print("-" * 30)
     print(f"Accuracy: {accuracy*100:.2f}%")
     print("="*30)
+    
+    # Generate visualizations
+    print("\nGenerating visualizations...")
+    plot_data_visualization(X, y, X_train, y_train, X_test, y_test, y_predict)
+    
     print("Done")
 
 

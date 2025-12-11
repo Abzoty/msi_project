@@ -7,10 +7,11 @@ from skimage.feature import hog
 from skimage.color import rgb2gray
 
 # all constants I need
-DATA_DIR = fr"msi_project/augmented/"
-OUTPUT_FEATURES = "features_X.npy"
-OUTPUT_LABELS = "labels_y.npy"
-OUTPUT_SCALER = "scaler.pkl"
+DATA_DIR = "augmented"
+OUTPUT = "extracted_features"
+OUTPUT_FEATURES = fr"{OUTPUT}/features_X.npy"
+OUTPUT_LABELS = fr"{OUTPUT}/labels_y.npy"
+OUTPUT_SCALER = fr"{OUTPUT}/scaler.pkl"
 HOG_RESIZE_DIMENSIONS = (64, 128)  #(512, 384) standard image size for HOG
 COLOR_HIST_BINS = 32               # standard bins number per channel for Color histograms
 
@@ -208,10 +209,10 @@ def build_features_set():
     max_samples = counts.max()
     imbalance_ratio = max_samples / min_samples
     if imbalance_ratio > 2.0:
-        print(f"\n⚠️  WARNING: Class imbalance detected! Ratio: {imbalance_ratio:.2f}:1")
+        print(f"\n WARNING: Class imbalance detected! Ratio: {imbalance_ratio:.2f}:1")
         print("Consider using class_weight='balanced' in your classifier or collecting more data for underrepresented classes.")
 
-    print("\nNormalize feature vector using standardScaller ...")
+    print("\nNormalize feature vector using standardScaler ...")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     print("Features normalized successfully.")

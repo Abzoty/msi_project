@@ -9,9 +9,9 @@ from sklearn.model_selection import StratifiedShuffleSplit
 
 
 # Define file paths
-X_Scaled_filepath = "features_X.npy"
-labels_y_filepath = "labels_y.npy"
-scaler_filepath = "scaler.pkl"
+X_Scaled_filepath = "extracted_features/features_X.npy"
+labels_y_filepath = "extracted_features/labels_y.npy"
+scaler_filepath = "extracted_features/scaler.pkl"
 svm_model_filepath = "svm_model.pkl"
 PREDICTION_OUTPUT_FILE = "prediction_report_svm.txt"
 
@@ -100,7 +100,7 @@ def main():
     print("Test size:", len(X_test))
     
 
-    svm = SVMClassifier(kernel='rbf', C=1.0, gamma='scale')
+    svm = SVMClassifier(kernel='rbf', C=60.0, gamma= 'scale')
     model_was_loaded = False
     
     if os.path.isfile(svm_model_filepath):

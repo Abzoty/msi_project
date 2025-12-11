@@ -7,13 +7,13 @@ from glob import glob
 import albumentations as A
 
 # ------------ Config -------------
-CLASS = "cardboard"                 # change this to change both input and output paths (make sure to name your folders accordingly)
+CLASS = "trash"                 # change this to change both input and output paths (make sure to name your folders accordingly)
 SRC_DIR = fr"images/{CLASS}"        # source folder with original images
 OUT_DIR = fr"augmented/{CLASS}"     # where augmented images will be saved
 IMG_SIZE = (512, 384)               # final image size (width, height)
 RANDOM_SEED_1 = 42
 RANDOM_SEED_2 = 73
-num_images = 5                      # set to None to process all images
+num_images = None                      # set to None to process all images
 # ----------------------------------
 
 os.makedirs(OUT_DIR, exist_ok=True)
