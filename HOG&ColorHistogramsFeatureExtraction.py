@@ -7,12 +7,11 @@ from skimage.feature import hog
 from skimage.color import rgb2gray
 
 # all constants I need
-DATA_DIR = "augmented"
-OUTPUT = "extracted_features"
-OUTPUT_FEATURES = fr"{OUTPUT}/features_X.npy"
-OUTPUT_LABELS = fr"{OUTPUT}/labels_y.npy"
-OUTPUT_SCALER = fr"{OUTPUT}/scaler.pkl"
-HOG_RESIZE_DIMENSIONS = (64, 128)  # standard image size for HOG
+DATA_DIR = fr"msi_project/augmented/"
+OUTPUT_FEATURES = "features_X.npy"
+OUTPUT_LABELS = "labels_y.npy"
+OUTPUT_SCALER = "scaler.pkl"
+HOG_RESIZE_DIMENSIONS = (64, 128)  #(512, 384) standard image size for HOG
 COLOR_HIST_BINS = 32               # standard bins number per channel for Color histograms
 
 
@@ -22,7 +21,7 @@ def load_image(augmented_dir: str = DATA_DIR):
     labels = [] # list of labels, numpy array represent each label
     class_names = [] # list of class names
 
-    # checking input images directory existence
+    # checking input images directory validity
     if not os.path.exists(augmented_dir):
         print("AUGMENTED DIRECTORY NOT FOUND")
         return
@@ -38,7 +37,7 @@ def load_image(augmented_dir: str = DATA_DIR):
 
         # gets all images in this class
         images_files = [i for i in os.listdir(class_path)
-                        if i.lower().endswith((".png", ".jpg", ".jpeg"))]
+                        if i.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))]
         print(f"class {class_name} with Id = {class_id} loads {len(images_files)} images") 
 
         # getting the path for every images in all classes we have
@@ -50,7 +49,7 @@ def load_image(augmented_dir: str = DATA_DIR):
                 print("CANNOT LOAD THIS IMAGE: ", image_path)
                 continue
 
-            # convert to RGB (all features extractors expect RGB images)
+            # convert to RGB (all featuers extractors expect RGB images)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             images.append(image) # appending the prepared image to our list with its label
             labels.append(class_id)
@@ -82,22 +81,21 @@ def extract_color_histograms(image, bins: int=32):
         # extracting the color histogram, calcHist return 2d array (bins,1)
         hist = cv2.calcHist(
             [resized_image], # input resized image
-            [channel],       # 0, 1, 3
-            None,            # no mask
-            [bins],          # 32 bins (the default value)
-            [0, 256]         # intensity range
+            [channel],  # 0, 1, 3
+            None,  ## no mask
+            [bins], # 32 bins (the default value)
+            [0, 256] # intensity range
         )
 
         hist = hist.flatten() # making it 1D (32,)
         hist = hist / (hist.sum()+ 1e-7) # normalizing the histogram
         hist_features.extend(hist) # appending the histogram to the list
 
-    return np.array(hist_features) # return 1
+    return np.array(hist_features)
 
 # takes an image as numpy array (RGB), works only on grayscale images
 def extract_hog_features(image):
 
-    # checking the validity of the input image
     if image is None or image.size == 0:
         print("extract hog: INPUT IMAGE IS EMPTY")
         return
@@ -125,7 +123,7 @@ def extract_hog_features(image):
     try:
         hog_features = hog(
             resized_image,
-            orientations=9, # divide the fradient dir into 9 orientation bins (edge direction groups) 0-180 degrees
+            orientations=9, # divide the fragment dir into 9 orientation bins (edge direction groups) 0-180 degrees
             pixels_per_cell=(8, 8),
             cells_per_block=(2, 2),
             block_norm="L2-Hys", # standard HOG normalization method
@@ -148,7 +146,13 @@ def extract_features(image):
 
     hog_features = extract_hog_features(image)
     color_histogram_features = extract_color_histograms(image)
-    combined_features = np.concatenate([hog_features, color_histogram_features])
+    
+    # IMPORTANT: Normalize each feature type separately before combining
+    # This gives both feature types equal weight
+    hog_normalized = (hog_features - hog_features.mean()) / (hog_features.std() + 1e-7)
+    color_normalized = (color_histogram_features - color_histogram_features.mean()) / (color_histogram_features.std() + 1e-7)
+    
+    combined_features = np.concatenate([hog_normalized, color_normalized])
 
     return combined_features
 
@@ -165,7 +169,7 @@ def build_features_set():
         print("No images found. Please check your data directory.")
         return
     
-    print(F"{len(images)} Images loaded from {len(class_names)} classes successfully.")
+    print(f"{len(images)} Images loaded from {len(class_names)} classes successfully.")
     print(f"Classes: {class_names}")
 
 
@@ -198,22 +202,27 @@ def build_features_set():
     unique, counts = np.unique(y, return_counts=True)
     for class_id, count in zip(unique, counts):
         print(f"Class {class_id} ({class_names[class_id]}): {count} samples")
+    
+    # Check for class imbalance
+    min_samples = counts.min()
+    max_samples = counts.max()
+    imbalance_ratio = max_samples / min_samples
+    if imbalance_ratio > 2.0:
+        print(f"\n⚠️  WARNING: Class imbalance detected! Ratio: {imbalance_ratio:.2f}:1")
+        print("Consider using class_weight='balanced' in your classifier or collecting more data for underrepresented classes.")
 
-    print("Normalize feature vector using standardScaler ...")
+    print("\nNormalize feature vector using standardScaller ...")
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     print("Features normalized successfully.")
+    
+    # Feature statistics
+    print(f"\nFeature Statistics:")
+    print(f"Total features per image: {X_scaled.shape[1]}")
+    print(f"HOG features: ~3780, Color histogram features: 96")
+    print(f"Feature mean: {X_scaled.mean():.4f}, std: {X_scaled.std():.4f}")
 
-    # -------------------------------
-    # Ensure OUTPUT directory exists
-    # -------------------------------
-    if not os.path.exists(OUTPUT):
-        os.makedirs(OUTPUT)
-        print(f"Created output folder: {OUTPUT}")
-    else:
-        print(f"Output folder already exists: {OUTPUT}")
-
-    print("Saving features to disk...")
+    print("\nSaving features to disk...")
     try:
         np.save(OUTPUT_FEATURES, X_scaled)
         np.save(OUTPUT_LABELS, y)

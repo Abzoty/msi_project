@@ -40,7 +40,14 @@ transform_variant_1 = A.Compose([
 
 # Variant 2: stronger augmentations (wider rotation/scale & color changes)
 transform_variant_2 = A.Compose([
-    A.ShiftScaleRotate(shift_limit=0.05, scale_limit=(0.4, 0.4), rotate_limit=50, interpolation=cv2.INTER_LINEAR, border_mode=cv2.BORDER_REFLECT_101, p=1.0),
+    A.ShiftScaleRotate(
+        shift_limit=0.05, 
+        scale_limit=0.15,  # Changed from (0.4, 0.4) to 0.15
+        rotate_limit=30,    # Changed from 50 to 30
+        interpolation=cv2.INTER_LINEAR, 
+        border_mode=cv2.BORDER_REFLECT_101, 
+        p=1.0
+    ),
     A.HorizontalFlip(p=0.5),
     # stronger brightness/contrast and hue/saturation
     A.RandomBrightnessContrast(brightness_limit=0.35, contrast_limit=0.35, p=0.95),
