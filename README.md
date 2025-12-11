@@ -21,7 +21,7 @@ MSI_PROJECT/
 │   ├── plastic/  
 │   └── trash/    
 │
-├── extracted_features/          # Extracted features (numpy arrays)     
+├── extracted_features/         # Extracted features (numpy arrays)     
 │
 ├── *.py                        # Python scripts for the project
 │
