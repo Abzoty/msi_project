@@ -74,7 +74,7 @@ Config 5: kernel='poly', C=10, degree=3, gamma='scale'
 SVM_PARAMS = {
     'kernel': 'rbf',        # Change this: ['*rbf', 'linear', 'poly', 'sigmoid']
     'C': 10,              # Change this: [0.1, 1, *10, 50, 100, 200]
-    'gamma': 'scale',       # Change this: ['scale', 'auto', 0.001, 0.01, 0.1, 1]
+    'gamma': 'scale',       # Change this: ['*scale', 'auto', 0.001, 0.01, 0.1, 1]
     'random_state': 42
 }
 
