@@ -24,7 +24,7 @@ def process_frame(frame, model):
     max_prob = probs.max()
     pred_index = probs.argmax()
     
-    if max_prob < 0.7:
+    if max_prob < 0.2:
         return class_names[-1] 
     return class_names[pred_index]            
             

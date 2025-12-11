@@ -65,7 +65,7 @@ class SVMClassifier:
         self.C = C
         self.gamma = gamma
         # Initialize with the base Scikit-learn SVM classifier
-        self.classifier = SVC(kernel=kernel, C=C, gamma=gamma, random_state=42)
+        self.classifier = SVC(kernel=kernel, C=C, gamma=gamma, random_state=42, probability=True)
 
     def fit(self, X, y):
         self.classifier.fit(X, y)
