@@ -7,8 +7,8 @@ from skimage.feature import hog, local_binary_pattern
 from skimage.color import rgb2gray
 
 DATA_DIR = "augmented"
-OUTPUT_FEATURES = "extracted_features/features_X.npy"
-OUTPUT_LABELS = "extracted_features/labels_y.npy"
+OUTPUT_FEATURES = "extracted_features/features.npy"
+OUTPUT_LABELS = "extracted_features/labels.npy"
 OUTPUT_SCALER = "extracted_features/scaler.pkl"
 
 HOG_RESIZE_DIMENSIONS = (32, 32) # smaller size for efficiency
@@ -332,6 +332,7 @@ def build_features_set():
 
     print("\n" + "=" * 70)
     print(" FEATURE DATASET CREATED SUCCESSFULLY!")
+    print(" Feature matrix shape:", X_scaled.shape)
     print("=" * 70)
 
 

@@ -87,7 +87,7 @@ def main():
     """Main function to run data augmentation."""
     source_dir = 'images'
     target_dir = 'augmented'
-    target_count = 500
+    target_count = 700
     class_names = ['cardboard', 'glass', 'metal', 'paper', 'plastic', 'trash']
     
     # Clean target directory

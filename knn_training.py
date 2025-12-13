@@ -69,7 +69,7 @@ Config 3: k=11, weights='distance', metric='euclidean'
 Config 4: k=7, weights='uniform', metric='euclidean'
 """
 
-# Set your parameters here:
+# Set your parameters here: (MAX: 69.99% accuracy, 71.65% with 8554 images)
 KNN_PARAMS = {
     'n_neighbors': 7,           # Change this: [3, 5, *7, 9, 11, 15, 21]
     'weights': 'distance',       # Change this: ['uniform', '*distance']

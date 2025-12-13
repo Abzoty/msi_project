@@ -70,7 +70,7 @@ Config 4: kernel='linear', C=1
 Config 5: kernel='poly', C=10, degree=3, gamma='scale'
 """
 
-# Set your parameters here:
+# Set your parameters here: (MAX: 77.71% accuracy, 76.62% with 8554 images)
 SVM_PARAMS = {
     'kernel': 'rbf',        # Change this: ['*rbf', 'linear', 'poly', 'sigmoid']
     'C': 10,              # Change this: [0.1, 1, *10, 50, 100, 200]
