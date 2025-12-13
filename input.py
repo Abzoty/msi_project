@@ -10,6 +10,9 @@ knn = joblib.load(knn_model_filepath)
 svm_model_filepath = "svm_model.pkl"
 svm = joblib.load(svm_model_filepath)
 
+scaler_filepath = "scaler.pkl"
+scaler = joblib.load(scaler_filepath)
+
 
 class_names = ["cardboard", "glass", "metal", "paper", "plastic", "trash","unknown"]
             
@@ -19,12 +22,13 @@ def process_frame(frame, model):
     image_rgb = cv2.resize(image_rgb, (128, 128))
     features = extract_features(image_rgb)
     X = features.reshape(1, -1)
+    X_Scaled = scaler.fit_transform(X)        
     
-    probs = model.predict_proba(X)[0]
+    probs = model.predict_proba(X_Sclaed)[0]
     max_prob = probs.max()
     pred_index = probs.argmax()
     
-    if max_prob < 0.2:
+    if max_prob < 0.6:
         return class_names[-1] 
     return class_names[pred_index]            
             
@@ -59,6 +63,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
