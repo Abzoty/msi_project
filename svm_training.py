@@ -14,8 +14,8 @@ from sklearn.decomposition import PCA
 import seaborn as sns
 
 # File paths
-X_filepath = "extracted_features/features.npy"
-y_filepath = "extracted_features/labels.npy"
+X_filepath = "extracted_features/X.npy"
+y_filepath = "extracted_features/y.npy"
 model_filepath = "svm_model.pkl"
 
 
