@@ -22,7 +22,6 @@ INPUT_DIR = Path("images")
 OUTPUT_DIR = Path("augmented")
 
 IMG_SIZE = (128, 128)              # MUST match feature extraction pipeline
-AUGMENTATIONS_PER_IMAGE = 4        # Number of augmented samples per original
 ROTATION_RANGE = (-15, 15)         # Degrees (safe for object integrity)
 
 VALID_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
@@ -63,7 +62,7 @@ def augment_image(img):
     bright = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
     augmented.append(bright)
 
-    return augmented[:AUGMENTATIONS_PER_IMAGE]
+    return augmented
 
 # =============================================================================
 # MAIN PIPELINE LOGIC
@@ -72,7 +71,6 @@ def augment_image(img):
 def augment_dataset():
     """
     Main data augmentation pipeline.
-    Mirrors the structure and verbosity of the feature extraction script.
     """
 
     print("\n" + "=" * 70)
@@ -81,11 +79,11 @@ def augment_dataset():
     print(f"Input directory : {INPUT_DIR}/")
     print(f"Output directory: {OUTPUT_DIR}/")
     print(f"Image size      : {IMG_SIZE}")
-    print(f"Augmentations   : {AUGMENTATIONS_PER_IMAGE} per image")
+    print(f"Augmentations   : 3 per image")
     print("=" * 70 + "\n")
 
     # -------------------------------------------------------------------------
-    # Step 1: Validate Input Directory
+    # Step 1: Validate Input & Output Directories
     # -------------------------------------------------------------------------
 
     if not INPUT_DIR.exists():
@@ -110,11 +108,7 @@ def augment_dataset():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"📁 Ensured output root exists: {OUTPUT_DIR.resolve()}\n")
 
-    # -------------------------------------------------------------------------
-    # NEW: Step 1.5 - Ensure matching class folders exist under OUTPUT_DIR
-    # -------------------------------------------------------------------------
-    # This is the requested change: create per-class directories up-front
-    # so the augmented images have a ready home before processing begins.
+    # Ensure matching class folders exist under OUTPUT_DIR
     created_dirs = []
     for cls in class_dirs:
         out_cls_dir = OUTPUT_DIR / cls.name
@@ -142,8 +136,6 @@ def augment_dataset():
         print("=" * 70)
 
         output_class_dir = OUTPUT_DIR / cls_dir.name
-        # ensure directory exists (redundant-safe)
-        output_class_dir.mkdir(parents=True, exist_ok=True)
 
         images = [
             f for f in cls_dir.iterdir()
@@ -161,7 +153,7 @@ def augment_dataset():
 
             # Skip unreadable files safely
             if img is None:
-                print(f"[WARNING] Could not read image: {img_path.name}")
+                print(f"⚠ Could not read image: {img_path.name}")
                 continue
 
             # Resize to match feature extraction requirements

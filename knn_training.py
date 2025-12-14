@@ -1,9 +1,4 @@
-"""
-KNN Training Script with Dimensionality Reduction
-Optimized for better accuracy with reduced features
-"""
-
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
 import joblib
@@ -16,70 +11,23 @@ import seaborn as sns
 # File paths
 X_filepath = "extracted_features/X.npy"
 y_filepath = "extracted_features/y.npy"
+class_map_filepath = "extracted_features/class_map.txt"
 model_filepath = "knn_model.pkl"
 
-
 # ============================================================================
-# KNN HYPERPARAMETERS - EXPERIMENT WITH THESE VALUES
+# KNN HYPERPARAMETERS
 # ============================================================================
 
-"""
-PARAMETER TUNING GUIDE FOR KNN:
-
-1. n_neighbors (k): Number of nearest neighbors to consider
-    Values to try: [3, 5, 7, 9, 11, 15, 21, 25]
-    - Lower k (3-5): More sensitive to noise, might overfit
-    - Medium k (7-11): Usually best balance
-    - Higher k (15-25): Smoother boundaries, might underfit
-    Start with: 7 or 9
-
-2. weights: How to weight the neighbors
-    Values to try: ['uniform', 'distance']
-    - 'uniform': All neighbors weighted equally
-    - 'distance': Closer neighbors have more influence (RECOMMENDED)
-    Start with: 'distance'
-
-3. metric: Distance metric to use
-    Values to try: ['euclidean', 'manhattan', 'cosine', 'minkowski']
-    - 'euclidean': Standard distance (default)
-    - 'manhattan': City-block distance (good for high dims)
-    - 'cosine': Angle-based similarity (good for normalized data)
-    - 'minkowski': Generalized distance (with p parameter)
-    Start with: 'euclidean' or 'manhattan'
-
-4. p (only for minkowski): Power parameter
-    Values to try: [1, 2, 3]
-    - p=1: Manhattan distance
-    - p=2: Euclidean distance
-    - p=3+: Higher order distances
-    Start with: 2
-
-5. algorithm: Algorithm to compute nearest neighbors
-    Values to try: ['auto', 'ball_tree', 'kd_tree', 'brute']
-    - 'auto': Let sklearn choose (RECOMMENDED)
-    - 'ball_tree': Good for high dimensions
-    - 'kd_tree': Fast for low dimensions
-    - 'brute': Slow but accurate
-    Start with: 'auto'
-
-RECOMMENDED STARTING CONFIGURATIONS:
-Config 1: k=7, weights='distance', metric='euclidean'
-Config 2: k=9, weights='distance', metric='manhattan'
-Config 3: k=11, weights='distance', metric='euclidean'
-Config 4: k=7, weights='uniform', metric='euclidean'
-"""
-
-# Set your parameters here: (MAX: 69.99% accuracy, 71.65% with 8554 images)
+# Set your parameters here: (MAX: 86.86% accuracy)
 KNN_PARAMS = {
-    'n_neighbors': 7,           # Change this: [3, 5, *7, 9, 11, 15, 21]
+    'n_neighbors': 7,            # Change this: [3, 5, *7, 9, 11, 15, 21]
     'weights': 'distance',       # Change this: ['uniform', '*distance']
-    'metric': 'cosine',       # Change this: ['euclidean', 'manhattan', '*cosine']
+    'metric': 'cosine',          # Change this: ['euclidean', 'manhattan', '*cosine']
     'algorithm': 'auto',         # Usually keep as 'auto'
     'n_jobs': -1                 # Use all CPU cores
 }
 
 # ============================================================================
-
 
 def read_data():
     """Load features and labels."""
@@ -92,25 +40,45 @@ def read_data():
         print(f"Error loading data: {e}")
         raise
 
+def load_class_map():
+    """Reads the class mapping from the text file."""
+    if not os.path.exists(class_map_filepath):
+        print(f"⚠️ Warning: {class_map_filepath} not found. Using numeric labels.")
+        return {}
+    
+    mapping = {}
+    with open(class_map_filepath, "r") as f:
+        for line in f:
+            if ":" in line:
+                parts = line.strip().split(":")
+                idx = int(parts[0].strip())
+                name = parts[1].strip()
+                mapping[idx] = name
+    return mapping
 
-def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
+def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred, class_map):
     """Create comprehensive visualizations."""
     unique_classes = np.unique(y)
     n_classes = len(unique_classes)
     colors = plt.cm.tab10(np.linspace(0, 1, n_classes))
     color_map = {cls: colors[i] for i, cls in enumerate(unique_classes)}
     
+    # Helper to get name
+    def get_name(cls_idx):
+        return class_map.get(cls_idx, str(cls_idx))
+    
     fig = plt.figure(figsize=(18, 12))
     
     # 1. Class Distribution
     ax1 = plt.subplot(2, 3, 1)
     unique, counts = np.unique(y, return_counts=True)
+    labels = [get_name(cls) for cls in unique]
     ax1.bar(range(len(unique)), counts, color=[color_map[cls] for cls in unique])
     ax1.set_xlabel('Class Label')
     ax1.set_ylabel('Count')
     ax1.set_title('Class Distribution')
     ax1.set_xticks(range(len(unique)))
-    ax1.set_xticklabels(unique)
+    ax1.set_xticklabels(labels, rotation=45)
     ax1.grid(axis='y', alpha=0.3)
     
     # 2. PCA 2D - All Data
@@ -121,7 +89,7 @@ def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
     for cls in unique_classes:
         mask = y == cls
         ax2.scatter(X_pca[mask, 0], X_pca[mask, 1], 
-                    c=[color_map[cls]], label=cls, alpha=0.6, s=20)
+                    c=[color_map[cls]], label=get_name(cls), alpha=0.6, s=20)
     
     ax2.set_xlabel(f'PC1 ({pca_2d.explained_variance_ratio_[0]:.1%})')
     ax2.set_ylabel(f'PC2 ({pca_2d.explained_variance_ratio_[1]:.1%})')
@@ -137,10 +105,9 @@ def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
     for cls in unique_classes:
         mask = y == cls
         ax3.scatter(X_pca_3d[mask, 0], X_pca_3d[mask, 1], X_pca_3d[mask, 2],
-                    c=[color_map[cls]], label=cls, alpha=0.6, s=15)
+                    c=[color_map[cls]], label=get_name(cls), alpha=0.6, s=15)
     
     ax3.set_title('PCA 3D')
-    ax3.legend()
     
     # 4. Train/Test Split
     ax4 = plt.subplot(2, 3, 4)
@@ -153,22 +120,21 @@ def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
         
         if np.any(train_mask):
             ax4.scatter(X_train_pca[train_mask, 0], X_train_pca[train_mask, 1],
-                        c=[color_map[cls]], marker='o', alpha=0.5, s=30, label=f'{cls} (train)')
+                        c=[color_map[cls]], marker='o', alpha=0.5, s=30)
         
         if np.any(test_mask):
             ax4.scatter(X_test_pca[test_mask, 0], X_test_pca[test_mask, 1],
                         c=[color_map[cls]], marker='s', alpha=0.8, s=50,
                         edgecolors='red', linewidth=1.5)
     
-    ax4.set_title('Train/Test Split')
-    ax4.legend(fontsize=7)
+    ax4.set_title('Train (o) vs Test (s)')
     ax4.grid(alpha=0.3)
     
     # 5. Confusion Matrix
     ax5 = plt.subplot(2, 3, 5)
     cm = confusion_matrix(y_test, y_pred, labels=unique_classes)
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=unique_classes, yticklabels=unique_classes, ax=ax5)
+                xticklabels=labels, yticklabels=labels, ax=ax5)
     ax5.set_xlabel('Predicted')
     ax5.set_ylabel('Actual')
     ax5.set_title('Confusion Matrix')
@@ -184,7 +150,7 @@ def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
         if np.any(cls_correct):
             ax6.scatter(X_test_pca[cls_correct, 0], X_test_pca[cls_correct, 1],
                         c=[color_map[cls]], marker='o', alpha=0.7, s=50,
-                        edgecolors='green', linewidth=2, label=f'{cls} ✓')
+                        edgecolors='green', linewidth=2, label=f'{get_name(cls)} ✓')
     
     if np.any(incorrect):
         ax6.scatter(X_test_pca[incorrect, 0], X_test_pca[incorrect, 1],
@@ -198,20 +164,37 @@ def plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred):
     plt.savefig('knn_visualization.png', dpi=300, bbox_inches='tight')
     print("Visualizations saved to knn_visualization.png")
 
-
 def main():
-    # Load data
+    # Load data and class map
     X, y = read_data()
+    class_map = load_class_map()
     
-    # Train/test split
+    if not class_map:
+        class_map = {i: str(i) for i in np.unique(y)}
+
+    # Train/test split (Stratified to ensure 80/20 split PER CLASS)
     split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
     for train_idx, test_idx in split.split(X, y):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
     
-    print(f"\nTrain size: {len(X_train)}")
-    print(f"Test size: {len(X_test)}")
+    # Validate Distribution
+    print("\n" + "="*50)
+    print("DATA SPLIT VERIFICATION (80/20 per class)")
+    print("="*50)
+    print(f"{'Class Name':<15} | {'Total':<6} | {'Train':<6} | {'Test':<6}")
+    print("-" * 45)
     
+    for cls in np.unique(y):
+        n_total = np.sum(y == cls)
+        n_train = np.sum(y_train == cls)
+        n_test = np.sum(y_test == cls)
+        cls_name = class_map.get(cls, str(cls))
+        print(f"{cls_name:<15} | {n_total:<6} | {n_train:<6} | {n_test:<6}")
+    print("-" * 45)
+    print(f"Total samples   | {len(y):<6} | {len(y_train):<6} | {len(y_test):<6}")
+    print("="*50)
+
     # Train or load model
     if os.path.isfile(model_filepath):
         print(f"\nLoading model from {model_filepath}")
@@ -238,27 +221,22 @@ def main():
     print("="*50)
     print(f"Model: K-Nearest Neighbors")
     print(f"Parameters: {KNN_PARAMS}")
-    print(f"Features: {X.shape[1]} (PCA reduced)")
-    print(f"Training samples: {len(X_train)}")
-    print(f"Testing samples: {len(X_test)}")
-    print("-"*50)
     print(f"Accuracy: {accuracy*100:.2f}%")
     print("="*50)
     
-    # Per-class accuracy with class names
-    class_names = {0: 'glass', 1: 'paper', 2: 'cardboard', 3: 'plastic', 4: 'metal', 5: 'trash'}
+    # Per-class accuracy using dynamic map
     cm = confusion_matrix(y_test, y_pred)
     print("\nPer-class accuracy:")
     for i, cls in enumerate(np.unique(y)):
         if cm[i].sum() > 0:
             acc = cm[i, i] / cm[i].sum() * 100
-            print(f"  Class {cls} ({class_names[cls]:12}): {acc:.1f}%")
+            name = class_map.get(cls, f"Class {cls}")
+            print(f"  {name:15}: {acc:.1f}%")
     
     # Generate outputs
-    plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred)
+    plot_visualizations(X, y, X_train, y_train, X_test, y_test, y_pred, class_map)
     
     print("\nDone!")
-
 
 if __name__ == "__main__":
     main()

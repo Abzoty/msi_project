@@ -24,8 +24,8 @@ from tqdm import tqdm
 
 DATA_DIR = Path("augmented")
 OUTPUT_DIR = Path("extracted_features")
-IMG_SIZE = (128, 128)
-BOVW_K = 256  # Size of the visual vocabulary
+IMG_SIZE = (128, 128)       # Must match augmentation pipeline
+BOVW_K = 256                # Size of the visual vocabulary
 
 # Create output directory if it doesn't exist
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -280,7 +280,7 @@ def main():
     print(f"✅ Features scaled (mean=0, std=1)")
     
     # PCA
-    n_components = min(150, len(features_scaled), features_scaled.shape[1])
+    n_components = min(200, len(features_scaled), features_scaled.shape[1])
     print(f"\n⏳ Step 2/2: Applying PCA (reducing to {n_components} components)...")
     pca = PCA(n_components=n_components)
     features_reduced = pca.fit_transform(features_scaled)
@@ -334,8 +334,8 @@ def main():
     print(f"   Output directory: {OUTPUT_DIR}/")
     print("="*70)
     print("\n💡 Next step: Run model training scripts")
-    print("   - python 3_train_svm.py")
-    print("   - python 4_train_knn.py")
+    print("   - python knn_training.py")
+    print("   - python svm_training.py")
     print("="*70 + "\n")
 
 if __name__ == "__main__":
