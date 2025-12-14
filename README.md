@@ -1,4 +1,4 @@
-# MSI_PROJECT – Image Dataset Augmentation for Waste Classification
+# MSI_PROJECT – Image processing for Waste Classification
 
 ## 📁 Project Structure
 
