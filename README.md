@@ -141,5 +141,5 @@ This specific combination of features was chosen to maximize accuracy for genera
 * **HOG** handles the **Shape** (e.g., is it a bottle or a can?).
 * **LBP/GLCM** handles the **Texture** (e.g., is it smooth glass or crinkled trash?).
 * **LAB Color** handles the **Material** (e.g., is it brown cardboard or transparent plastic?).
-* **BoVW** handles **Local Features** (e.g., specific logos or text on the object).
+* **BoVW** handles **Local Features** (e.g., specific logos, sharp corners or text on the object).
 
