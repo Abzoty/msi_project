@@ -98,7 +98,9 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # frame = cv2.imread("images/trash/109.jpg")
+
+    # # For testing without webcam
+    # frame = cv2.imread("test_images/zz.jpg")
     # predicted_class_knn = process_frame(frame, knn)
     # predicted_class_svm = process_frame(frame, svm)
     
