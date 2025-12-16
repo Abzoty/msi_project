@@ -66,6 +66,16 @@ print("Models loaded successfully.\n")
 # -----------------------
 # Feature extraction
 # -----------------------
+def lab_stats(img_bgr):
+    """
+    Extract LAB color statistics (mean and std per channel).
+    Matches training pipeline in feature_extraction_mobilenet.py
+    """
+    lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+    mean = lab.mean(axis=(0, 1))
+    std = lab.std(axis=(0, 1))
+    return np.concatenate([mean, std])  # shape (6,)
+
 def extract_cnn_features(frame_bgr):
     """
     Extract CNN features from a single frame using MobileNetV2.
@@ -89,8 +99,15 @@ def extract_cnn_features(frame_bgr):
 
     # Extract embedding
     embedding = mobilenet.predict(x, verbose=0)
+    
+    # Extract LAB color stats (CRITICAL: must match training!)
+    color_stats = lab_stats(frame_bgr)
+    color_stats = color_stats.reshape(1, -1)  # shape: (1, 6)
+    
+    # Concatenate MobileNet features + color stats
+    features = np.concatenate([embedding, color_stats], axis=1)
 
-    return embedding  # shape: (1, 1280)
+    return features  # shape: (1, 1286) = 1280 + 6
 
 # -----------------------
 # Prediction
