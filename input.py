@@ -1,108 +1,168 @@
-from feature_extraction import extract_features
+"""
+input_cnn.py
+
+Live camera inference using:
+- MobileNetV2 feature extractor (CPU-friendly)
+- Pretrained scaler + PCA
+- KNN and SVM classifiers
+
+Must match:
+- feature_extraction_mobilenet.py EXACTLY
+
+Dependencies:
+    pip install tensorflow-cpu opencv-python scikit-learn joblib numpy
+"""
+
+import cv2
 import numpy as np
 import joblib
-import cv2
+import tensorflow as tf
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mb_preprocess
 
-# --- 1. Load Models Correctly ---
-knn_model_filepath = "knn_model.pkl"
-knn = joblib.load(knn_model_filepath)
+# -----------------------
+# CONFIG
+# -----------------------
+IMG_SIZE = (224, 224)
+FEATURE_DIR = "extracted_features"
 
-# FIX 1: Load the actual BoVW model, not the KNN model again
-bovw_model_filepath = "extracted_features/bovw.pkl"
-bovw = joblib.load(bovw_model_filepath)
+CLASS_NAMES = [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash",
+    "unknown"
+]
 
-svm_model_filepath = "svm_model.pkl"
-svm = joblib.load(svm_model_filepath)
+UNKNOWN_THRESHOLD = 0.60   # confidence threshold
 
-scaler_filepath = "extracted_features/scaler.pkl"
-scaler = joblib.load(scaler_filepath)
+# -----------------------
+# Load models
+# -----------------------
+print("Loading models...")
 
-# FIX 2: Load the PCA model (required to match the 200 features expected by KNN/SVM)
-pca_filepath = "extracted_features/pca.pkl"
-pca = joblib.load(pca_filepath)
+knn = joblib.load("knn_model.pkl")
+svm = joblib.load("svm_model.pkl")
 
-class_names = ["cardboard", "glass", "metal", "paper", "plastic", "trash", "unknown"]
+scaler = joblib.load(f"{FEATURE_DIR}/scaler.pkl")
+pca = joblib.load(f"{FEATURE_DIR}/pca.pkl")
 
-def process_frame(frame, model):
-    # Global variables for the transformers
-    global scaler, bovw, pca
+# -----------------------
+# Load MobileNetV2
+# -----------------------
+print("Loading MobileNetV2 backbone...")
+mobilenet = MobileNetV2(
+    include_top=False,
+    weights="imagenet",
+    input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3),
+    pooling="avg"
+)
+mobilenet.trainable = False
 
-    # Preprocessing (must match training exactly)
-    image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
-    # Note: Resize is handled inside extract_features, but doing it here doesn't hurt
-    # image_rgb = cv2.resize(image_rgb, (128, 128)) 
-    
-    # 1. Extract Raw Features (HOG + LBP + GLCM + Color + BoVW)
-    features = extract_features(image_rgb, bovw)
-    
-    # Reshape for sklearn (1 sample, N features)
-    X = features.reshape(1, -1)
-    
-    # FIX 3: Use .transform(), NEVER .fit_transform() during inference
-    X_Scaled = scaler.transform(X)
-    
-    # FIX 4: Apply PCA to reduce dimensions from ~8000 to 200
-    X_PCA = pca.transform(X_Scaled)
-    
-    # Predict
-    probs = model.predict_proba(X_PCA)[0]
-    print(probs)
+print("Models loaded successfully.\n")
+
+# -----------------------
+# Feature extraction
+# -----------------------
+def extract_cnn_features(frame_bgr):
+    """
+    Extract CNN features from a single frame using MobileNetV2.
+    Output shape matches training pipeline.
+    """
+
+    # BGR → RGB
+    img_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+    # Resize
+    img_rgb = cv2.resize(img_rgb, IMG_SIZE, interpolation=cv2.INTER_LINEAR)
+
+    # Convert to float32
+    img_rgb = img_rgb.astype(np.float32)
+
+    # Expand batch dimension
+    x = np.expand_dims(img_rgb, axis=0)
+
+    # MobileNet preprocessing
+    x = mb_preprocess(x)
+
+    # Extract embedding
+    embedding = mobilenet.predict(x, verbose=0)
+
+    return embedding  # shape: (1, 1280)
+
+# -----------------------
+# Prediction
+# -----------------------
+def predict_frame(frame, model):
+    """
+    Predict class name for a single frame using given model (KNN or SVM).
+    """
+
+    # 1️⃣ CNN feature extraction
+    features = extract_cnn_features(frame)
+
+    # 2️⃣ Scale (NO fitting!)
+    features_scaled = scaler.transform(features)
+
+    # 3️⃣ PCA reduction
+    features_pca = pca.transform(features_scaled)
+
+    # 4️⃣ Predict probabilities
+    probs = model.predict_proba(features_pca)[0]
+
     max_prob = probs.max()
-    pred_index = probs.argmax()
-    
-    # Threshold for "Unknown"
-    if max_prob < 0.6:
-        return class_names[-1] 
-        
-    return class_names[pred_index]
+    pred_idx = probs.argmax()
 
+    # Unknown handling
+    if max_prob < UNKNOWN_THRESHOLD:
+        return CLASS_NAMES[-1], max_prob
+
+    return CLASS_NAMES[pred_idx], max_prob
+
+# -----------------------
+# Main camera loop
+# -----------------------
 def main():
     cap = cv2.VideoCapture(0)
-    
+
     if not cap.isOpened():
-        print("Cannot open camera")
+        print("❌ Cannot open camera")
         return
+
+    print("🎥 Camera started. Press 'q' to quit.")
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Can't receive frame (stream end?). Exiting ...")
+            print("❌ Failed to grab frame")
             break
 
-        # Run prediction
         try:
-            predicted_class_knn = process_frame(frame, knn)
-            predicted_class_svm = process_frame(frame, svm)
-            
-            # Console Output
-            print(f"KNN: {predicted_class_knn} | SVM: {predicted_class_svm}")
+            knn_pred, knn_conf = predict_frame(frame, knn)
+            svm_pred, svm_conf = predict_frame(frame, svm)
 
-            # Display on Frame
+            # Console output
+            print(f"KNN: {knn_pred} ({knn_conf:.2f}) | SVM: {svm_pred} ({svm_conf:.2f})")
+
+            # Overlay on frame
             font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(frame, f"KNN: {predicted_class_knn}", (10, 30), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
-            cv2.putText(frame, f"SVM: {predicted_class_svm}", (10, 70), font, 1, (0, 0, 255), 2, cv2.LINE_AA)
-            
-            cv2.imshow('Recycle Smart', frame)
+            cv2.putText(frame, f"KNN: {knn_pred}", (10, 30), font, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f"SVM: {svm_pred}", (10, 70), font, 1, (0, 0, 255), 2)
+
+            cv2.imshow("Recycle Smart (CNN)", frame)
 
         except Exception as e:
-            print(f"Error processing frame: {e}")
+            print(f"⚠ Error processing frame: {e}")
             break
-        
-        # Press 'q' to quit
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     cap.release()
     cv2.destroyAllWindows()
 
+# -----------------------
 if __name__ == "__main__":
     main()
-
-    # # For testing without webcam
-    # frame = cv2.imread("test_images/zz.jpg")
-    # predicted_class_knn = process_frame(frame, knn)
-    # predicted_class_svm = process_frame(frame, svm)
-    
-    # # Console Output
-    # print(f"KNN: {predicted_class_knn} | SVM: {predicted_class_svm}")

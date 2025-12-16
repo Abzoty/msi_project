@@ -21,7 +21,7 @@ from tqdm import tqdm
 INPUT_DIR = Path("images")
 OUTPUT_DIR = Path("augmented")
 
-IMG_SIZE = (128, 128)              # MUST match feature extraction pipeline
+IMG_SIZE = (224, 224)              # MUST match feature extraction pipeline
 ROTATION_RANGE = (-15, 15)         # Degrees (safe for object integrity)
 
 VALID_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
