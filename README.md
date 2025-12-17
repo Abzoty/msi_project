@@ -380,4 +380,4 @@ Each stage feeds cleanly into the next with serialized artifacts.
 This project demonstrates how **transfer learning + careful pipeline design** can deliver production-level accuracy using modest hardware.
 The combination of data augmentation, MobileNetV2 feature extraction, PCA compression, and classical classifiers results in a **robust, efficient, and deployable waste classification system** suitable for real-world applications.
 
----
+--- 
