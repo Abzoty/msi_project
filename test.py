@@ -1,104 +1,110 @@
-import os
-from pathlib import Path
+import cv2
 import numpy as np
 import joblib
-import cv2
+from pathlib import Path
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mb_preprocess
 
+# -----------------------
+# GLOBAL CONFIG
+# -----------------------
+CLASS_NAMES = [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash",
+    "unknown"
+]
 
-def predict(dataFilePath, bestModelPath, scaler_path, pca_path):
+# Load Model scaler + PCA (shared)
+scaler = joblib.load("extracted_features/scaler.pkl")  # Path to the trained scaler for features scaling
+pca = joblib.load("extracted_features/pca.pkl")        # Path to the trained PCA model for dimensionality reduction
+images_path = "test_images"         # Path to the folder containing test images
+svm_model_path = "svm_model.pkl"    # Path to the trained SVM model  
 
-    IMG_SIZE = (224, 224)
-    APPEND_COLOR_STATS = True
-    
-    # Convert to Path objects
+# Load MobileNetV2 backbone
+mobilenet = MobileNetV2(
+    include_top=False,
+    weights="imagenet",
+    input_shape=(224, 224, 3),
+    pooling="avg"
+)
+mobilenet.trainable = False
+
+
+# -----------------------
+# Prediction function
+# -----------------------
+def predict(dataFilePath, bestModelPath):
+
     data_dir = Path(dataFilePath)
     model_path = Path(bestModelPath)
-    
-    # Validate paths
+
     if not data_dir.exists():
-        raise FileNotFoundError(f"Data directory '{data_dir}' not found.")
+        raise FileNotFoundError(f"Image folder not found: {data_dir}")
     if not model_path.exists():
-        raise FileNotFoundError(f"Model file '{model_path}' not found.")
-    
-    classifier = joblib.load(str(model_path))
-    scaler = joblib.load(str(scaler_path))
-    pca = joblib.load(str(pca_path))
-    
-    # Load MobileNetV2 for feature extraction
-    mobilenet = MobileNetV2(
-        include_top=False,
-        weights="imagenet",
-        input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3),
-        pooling="avg"
-    )
-    mobilenet.trainable = False
-    
-    # Get list of image files
-    image_files = []
-    for ext in ['.jpg', '.jpeg', '.png', '.bmp']:
-        image_files.extend(sorted(data_dir.glob(f"*{ext}")))
-        image_files.extend(sorted(data_dir.glob(f"*{ext.upper()}")))
-    
-    if len(image_files) == 0:
+        raise FileNotFoundError(f"SVM model not found: {model_path}")
+
+    # Load SVM model
+    svm = joblib.load(model_path)
+
+    # Collect image files
+    image_files = [
+        p for p in sorted(data_dir.iterdir())
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
+    ]
+
+    if not image_files:
         raise ValueError(f"No images found in {data_dir}")
-    
-    print(f"Found {len(image_files)} images to predict")
-    
-    # Extract features for all images
-    features_list = []
+
+    predictions = []
+
     for img_path in image_files:
         img = cv2.imread(str(img_path))
         if img is None:
-            print(f"Warning: couldn't read {img_path}")
+            print(f"⚠ Could not read {img_path.name}, skipping")
             continue
-        
-        # Preprocess for MobileNetV2
+
+        # 1️⃣ Extract MobileNetV2 features
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_rgb = cv2.resize(img_rgb, IMG_SIZE, interpolation=cv2.INTER_LINEAR)
-        img_array = img_rgb.astype(np.float32)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = mb_preprocess(img_array)
-        
-        # Extract MobileNetV2 features
-        features = mobilenet.predict(img_array, verbose=0)[0]
-        
-        # Append LAB color stats if enabled
-        if APPEND_COLOR_STATS:
-            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
-            mean = lab.mean(axis=(0, 1))
-            std = lab.std(axis=(0, 1))
-            color_feats = np.concatenate([mean, std])
-            features = np.concatenate([features, color_feats])
-        
-        features_list.append(features)
-    
-    # Stack features into array
-    X_raw = np.stack(features_list, axis=0)
-    
-    # Apply scaling and PCA transformation
-    X_scaled = scaler.transform(X_raw)
-    X_pca = pca.transform(X_scaled)
-    
-    # Make predictions
-    predictions = classifier.predict(X_pca)
-    predictions_list = predictions.tolist()
-    
-    print(f"Predictions complete: {len(predictions_list)} samples")
-    
-    return predictions_list
+        img_rgb = cv2.resize(img_rgb, (224, 224), interpolation=cv2.INTER_LINEAR)
+        img_rgb = img_rgb.astype(np.float32)
 
+        x = np.expand_dims(img_rgb, axis=0)
+        x = mb_preprocess(x)
 
+        embedding = mobilenet.predict(x, verbose=0)
+
+        # Append LAB stats
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+        mean = lab.mean(axis=(0, 1))
+        std = lab.std(axis=(0, 1))
+        color = np.concatenate([mean, std]).reshape(1, -1)  # (1, 6)
+        feats = np.concatenate([embedding, color], axis=1)
+
+        # 2️⃣ Scale
+        feats_scaled = scaler.transform(feats)
+
+        # 3️⃣ PCA
+        feats_pca = pca.transform(feats_scaled)
+
+        # 4️⃣ Predict
+        pred_idx = svm.predict(feats_pca)[0]
+        pred_class = CLASS_NAMES[pred_idx]
+
+        predictions.append((img_path.name, pred_class))
+
+    return predictions
+
+# -----------------------
+# Example usage
+# -----------------------
 if __name__ == "__main__":
-    data_path = str(input("Enter data directory path: "))
-    model_path = str(input("Enter model file path: "))
-    scaler_path = str(input("Enter scaler file path: "))
-    pca_path = str(input("Enter PCA file path: "))
-    
-    try:
-        predictions = predict(data_path, model_path, scaler_path, pca_path)
-        print(f"Predictions: {predictions}")
-    except Exception as e:
-        print(f"Error: {e}")
+
+    results = predict(images_path, svm_model_path)
+
+    for name, pred in results:
+        print(f"{name} -> {pred}")
