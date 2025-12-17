@@ -18,7 +18,7 @@ model_filepath = "svm_model.pkl"
 # SVM HYPERPARAMETERS
 # ============================================================================
 
-# Set your parameters here: (MAX: 88.54% accuracy)
+# Set your parameters here: (MAX: 99.87% accuracy)
 SVM_PARAMS = {
     'kernel': 'rbf',        # Change this: ['*rbf', 'linear', 'poly', 'sigmoid']
     'C': 10,                # Change this: [0.1, 1, *10, 50, 100, 200]

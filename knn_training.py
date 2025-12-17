@@ -18,7 +18,7 @@ model_filepath = "knn_model.pkl"
 # KNN HYPERPARAMETERS
 # ============================================================================
 
-# Set your parameters here: (MAX: 86.86% accuracy)
+# Set your parameters here: (MAX: 99.73% accuracy)
 KNN_PARAMS = {
     'n_neighbors': 7,            # Change this: [3, 5, *7, 9, 11, 15, 21]
     'weights': 'distance',       # Change this: ['uniform', '*distance']

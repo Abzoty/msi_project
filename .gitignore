@@ -4,3 +4,5 @@
 *.pkl
 *.txt
 venv
+knn_model.pkl
+svm_model.pkl
