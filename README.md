@@ -30,7 +30,6 @@ MSI_PROJECT/
 │   └── class_map.txt           # Class index mapping
 │
 ├── *.py                        # Python scripts for the project
-├── *.pkl                       # Trained ML models serialized
 │
 └── venv/                       # (Optional) Python virtual environment
 ```
