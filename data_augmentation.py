@@ -1,14 +1,3 @@
-"""
-Data Augmentation Pipeline
-----------------------------------
-1. Loads images from 'images/' directory (class-based folders).
-2. Ensures matching class folders exist under 'augmented/'.
-3. Applies SAFE, label-preserving augmentations.
-4. Resizes all images to (128 × 128) — required by feature extraction.
-5. Saves augmented images to 'augmented/<class>/' directory.
-6. Reports detailed class distribution after augmentation.
-"""
-
 import cv2
 import numpy as np
 from pathlib import Path

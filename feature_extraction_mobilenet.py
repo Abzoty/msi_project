@@ -1,32 +1,3 @@
-"""
-feature_extraction_mobilenet.py
-
-CNN-based feature extractor using MobileNetV2 (pretrained on ImageNet).
-
-- Reads images from augmented dataset directory (default: "augmented_balanced/")
-    where each class has its own subfolder.
-- Extracts MobileNetV2 pooled embeddings (global average pooling).
-- Optionally appends simple LAB color stats (mean/std per channel).
-- StandardScaler -> PCA applied and saved.
-- Outputs into 'extracted_features/':
-    - X.npy (PCA-reduced features)
-    - X_raw.npy (raw embeddings before scaling/PCA)
-    - y.npy (labels)
-    - scaler.pkl
-    - pca.pkl
-    - class_map.txt
-
-Why MobileNetV2?
-- Lightweight and fast on CPU / low-power laptops, while still giving strong embeddings.
-
-Dependencies:
-    pip install tensorflow opencv-python scikit-learn joblib numpy tqdm
-
-Run:
-    python feature_extraction_mobilenet.py
-
-"""
-
 import os
 from pathlib import Path
 from tqdm import tqdm
@@ -50,7 +21,6 @@ DATA_DIR = Path("augmented")    # <-- matches augment_and_balance.py default
 OUTPUT_DIR = Path("extracted_features")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-BACKBONE = "mobilenet"   # fixed to MobileNetV2 per your request
 IMG_SIZE = (224, 224)    # MobileNetV2 expected input size
 APPEND_COLOR_STATS = True
 PCA_TARGET = 200
