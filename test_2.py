@@ -105,14 +105,8 @@ def predict(dataFilePath, bestModelPath):
 # -----------------------
 # Save to Excel function
 # -----------------------
-def save_to_excel(predictions, output_file="predictions_results.xlsx"):
-    """
-    Save predictions to an Excel file with formatting.
+def save_to_excel(predictions, output_file="predictions_results.xlsx"): 
     
-    Args:
-        predictions: List of tuples (image_name, predicted_class)
-        output_file: Output Excel filename
-    """
     # Create DataFrame
     df = pd.DataFrame(predictions, columns=["Image Name", "Predicted Class"])
     
