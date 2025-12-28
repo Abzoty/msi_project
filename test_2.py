@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import joblib
@@ -11,15 +12,23 @@ from datetime import datetime
 # -----------------------
 # GLOBAL CONFIG
 # -----------------------
-CLASS_NAMES = [
-    "cardboard",
-    "glass",
-    "metal",
-    "paper",
-    "plastic",
-    "trash",
-    "unknown"
-]
+class_map_filepath = "extracted_features/class_map.txt"
+
+def load_class_map():
+    """Reads the class mapping from the text file."""
+    if not os.path.exists(class_map_filepath):
+        print(f"⚠️ Warning: {class_map_filepath} not found. Using numeric labels.")
+        return {}
+    
+    mapping = {}
+    with open(class_map_filepath, "r") as f:
+        for line in f:
+            if ":" in line:
+                parts = line.strip().split(":")
+                idx = int(parts[0].strip())
+                name = parts[1].strip()
+                mapping[idx] = name
+    return mapping
 
 # Load Model scaler + PCA (shared)
 scaler = joblib.load("extracted_features/scaler.pkl")  # Path to the trained scaler for features scaling
@@ -42,6 +51,7 @@ mobilenet.trainable = False
 # -----------------------
 def predict(dataFilePath, bestModelPath):
 
+    class_map = load_class_map()
     data_dir = Path(dataFilePath)
     model_path = Path(bestModelPath)
 
@@ -95,7 +105,7 @@ def predict(dataFilePath, bestModelPath):
 
         # 4️⃣ Predict
         pred_idx = svm.predict(feats_pca)[0]
-        pred_class = CLASS_NAMES[pred_idx]
+        pred_class = class_map[pred_idx]
 
         predictions.append((img_path.name, pred_class))
 

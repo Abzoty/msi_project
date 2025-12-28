@@ -177,7 +177,6 @@ Training CNNs from scratch is impractical due to:
 * High computational cost
 * Risk of overfitting
 
-ImageNet pretraining provides reusable visual features, yielding a **~13% accuracy improvement** over handcrafted methods.
 
 ---
 
